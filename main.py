@@ -1,45 +1,22 @@
 import streamlit as st
-import logging, os, re, smbclient
 
 from streamlit import spinner
 from yt_dlp import YoutubeDL
 
-smbclient.register_session(**st.secrets['smb'])
+from helpers import extract_percentage, upload_to_smb
 
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-
-def upload_to_smb(filename: str) -> None:
-    """Uploads video to SMB share
-    Args:
-        filename (str): Name of the video file
-    Returns:
-        None
-    """
-    with open(filename, 'rb') as vd:
-        video_bytes = vd.read()
-        with smbclient.open_file(fr"""\\{st.secrets['smb']['server']}\shared\YT_Downloads\{filename}""", mode = "wb") as fd:
-            fd.write(video_bytes)
-
-    os.remove(filename)
-
-
-def extract_percentage(s):
-    """Extracts percentage from string"""
-    match = re.search(r'(\d+\.\d+%)', s)
-    if match:
-        return match.group(1)
-    return None
-
+progress_bar = None
 
 def cb_download_hook(d):
     """Callback function to handle download progress"""
+    global progress_bar
     if d['status'] == 'downloading':
-        percentage = extract_percentage(d['_percent_str']).split('%')[0]
+        percent_str = extract_percentage(d['_percent_str'])
+        percentage = float(percent_str.split('%')[0])
+        progress_bar.progress(int(round(percentage, 0)), f"Downloading...{percent_str}")
 
     if d['status'] == 'finished':
-        upload_to_smb(d['filename'])
+        upload_to_smb(d['filename'], st.secrets['smb'])
         st.success("Download Complete!")
 
 
@@ -50,6 +27,8 @@ def write_human_response(user_query: str) -> None:
 
 def write_ai_response(user_query: str) -> None:
     """Write AI response to chat"""
+    global progress_bar
+
     with st.chat_message("assistant"):
         with YoutubeDL({'progress_hooks': [cb_download_hook]}) as ydl:
             try:
@@ -58,9 +37,11 @@ def write_ai_response(user_query: str) -> None:
                     st.image(info['thumbnail'], width = 400)
                     st.markdown(f"""
                         **Title:** {info['title']}\n
-                        **Video Duration:** {info['duration'] / 60} Minutes"""
+                        **Video Duration:** {int(info['duration'] / 60)} Minutes"""
                     )
                 with spinner("Downloading Video"):
+                    if progress_bar is None:
+                        progress_bar = st.progress(0)
                     ydl.download([user_query])
             except Exception as e:
                 st.write(f"{e}")
@@ -68,9 +49,7 @@ def write_ai_response(user_query: str) -> None:
 
 def main() -> None:
     st.set_page_config(page_title = "Home", layout = "wide", menu_items = None)
-
-    header_container = st.container(key = "header_container")
-    header_container.title("Youtube Downloader")
+    st.title("Youtube Downloader")
 
     if prompt := st.chat_input("Enter Video URL"):
         write_human_response(prompt)
