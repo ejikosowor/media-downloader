@@ -1,5 +1,9 @@
-import os, re, smbclient
+import os, re
+from dotenv import dotenv_values
 
+from services.storage_service import SMBStrategy, StorageHandler, S3Strategy
+
+ENV_VALUES = dotenv_values()
 
 def extract_percentage(s):
     """Extracts percentage from string"""
@@ -8,20 +12,23 @@ def extract_percentage(s):
         return match.group(1)
     return None
 
-
-def upload_to_smb(filename: str, credentials: dict) -> None:
-    """Uploads file to SMB share
-    Args:
-        filename (str): Name of the file
-        credentials (dict): SMB credentials
-    Returns:
-        None
-    """
-    smbclient.register_session(**credentials)
-    smb_fileshare = fr"""\\{credentials['server']}\shared\YT_Downloads\{filename}"""
+def handle_upload(filename: str) -> str | None:
+    if ENV_VALUES["MODE"] == "local":
+        storage_handler = StorageHandler(SMBStrategy())
+    else:
+        storage_handler = StorageHandler(S3Strategy())
 
     with open(filename, 'rb') as fd:
-        file_bytes = fd.read()
-        with smbclient.open_file(smb_fileshare, mode = "wb") as smb_fd:
-            smb_fd.write(file_bytes)
-    os.remove(filename)
+        try:
+            storage_response = storage_handler.run(fd, filename)
+        except Exception as e:
+            storage_response = {
+                "status": False,
+                "payload": "Failed to Upload Downloaded Video.\n{}".format(e)
+            }
+        finally:
+            if storage_response["status"]:
+                os.remove(filename)
+
+    return storage_response["payload"]
+

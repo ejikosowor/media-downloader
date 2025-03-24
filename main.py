@@ -3,7 +3,7 @@ import streamlit as st
 from streamlit import spinner
 from yt_dlp import YoutubeDL
 
-from helpers import extract_percentage, upload_to_smb
+from helpers import extract_percentage, handle_upload
 
 progress_bar = None
 
@@ -16,8 +16,8 @@ def cb_download_hook(d):
         progress_bar.progress(int(round(percentage, 0)), f"Downloading...{percent_str}")
 
     if d['status'] == 'finished':
-        upload_to_smb(d['filename'], st.secrets['smb'])
-        st.success("Download Complete!")
+        handler_response = handle_upload(d['filename'])
+        st.success(f"""**Download Complete!**\n {handler_response}""")
 
 
 def write_human_response(user_query: str) -> None:
