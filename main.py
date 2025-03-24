@@ -17,7 +17,11 @@ def cb_download_hook(d):
 
     if d['status'] == 'finished':
         handler_response = handle_upload(d['filename'])
-        st.success(f"""**Download Complete!**\n {handler_response}""")
+        if handler_response["status"]:
+            markdown_url = """[Download Video]({})""".format(handler_response["payload"])
+            st.success(f"""**Download Complete!**\n {markdown_url}""")
+        else:
+            st.success(f"""**Download Complete!**\n {handler_response["payload"]}""")
 
 
 def write_human_response(user_query: str) -> None:

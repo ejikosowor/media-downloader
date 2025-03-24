@@ -12,7 +12,7 @@ def extract_percentage(s):
         return match.group(1)
     return None
 
-def handle_upload(filename: str) -> str | None:
+def handle_upload(filename: str) -> dict | None:
     if ENV_VALUES["MODE"] == "local":
         storage_handler = StorageHandler(SMBStrategy())
     else:
@@ -30,5 +30,5 @@ def handle_upload(filename: str) -> str | None:
             if storage_response["status"]:
                 os.remove(filename)
 
-    return storage_response["payload"]
+    return storage_response
 

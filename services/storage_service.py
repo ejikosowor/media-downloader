@@ -28,12 +28,11 @@ class SMBStrategy(StorageStrategy):
 
     def upload(self, file: BinaryIO, filename: str) -> dict:
         smbclient.register_session(**self.credentials)
-        smb_fileshare = fr"""\\{self.credentials['server']}\shared\YT_Downloads\{filename}"""
-
+        smb_directory = f"//{self.credentials['server']}/shared/YT_Downloads/"
         try:
-            with smbclient.open_file(smb_fileshare, mode = "wb") as smb_fd:
+            with smbclient.open_file(fr"""{smb_directory}{filename}""", mode = "wb") as smb_fd:
                 smb_fd.write(file.read())
-            return { "status": True, "payload": smb_fileshare }
+            return { "status": True, "payload": f"smb:{smb_directory}" }
         except Exception as e:
             return { "status": True, "payload": str(e) }
 
