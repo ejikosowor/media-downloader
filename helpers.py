@@ -1,7 +1,7 @@
 import os, re
 from dotenv import dotenv_values
 
-from services.storage_service import SMBStrategy, StorageHandler, S3Strategy
+from services.storage_service import LocalFileStrategy, SMBStrategy, StorageHandler, S3Strategy
 
 ENV_VALUES = dotenv_values()
 
@@ -13,19 +13,25 @@ def extract_percentage(s):
     return None
 
 def handle_upload(filename: str) -> dict | None:
-    if ENV_VALUES["MODE"] == "local":
-        storage_handler = StorageHandler(SMBStrategy())
-    else:
-        storage_handler = StorageHandler(S3Strategy())
+    """Uploads file to storage service
+        Args:
+            filename (str): Name of the file
+        Returns:
+            dict | None: status and payload
+    """
+
+    storage_mode = ENV_VALUES["MODE"]
+
+    storage_handler = StorageHandler(LocalFileStrategy())
+
+    if storage_mode == "smb":
+        storage_handler.set_strategy(SMBStrategy())
+    elif storage_mode == "s3":
+        storage_handler.set_strategy(S3Strategy())
 
     with open(filename, 'rb') as fd:
         try:
-            storage_response = storage_handler.run(fd, filename)
-        except Exception as e:
-            storage_response = {
-                "status": False,
-                "payload": "Failed to Upload Downloaded Video.\n{}".format(e)
-            }
+            storage_response = storage_handler.run(fd, filename.strip().replace(' ', '_'))
         finally:
             if storage_response["status"]:
                 os.remove(filename)

@@ -15,14 +15,15 @@ def cb_download_hook(d):
         percentage = float(percent_str.split('%')[0])
         progress_bar.progress(int(round(percentage, 0)), f"Downloading...{percent_str}")
 
-    if d['status'] == 'finished':
-        handler_response = handle_upload(d['filename'])
+def cb_post_process_hook(d):
+    """Callback function to handle post-processing progress"""
+    if d['status'] == 'finished' and len(d['info_dict']['__files_to_move']) > 0:
+        handler_response = handle_upload(d['info_dict']['filename'])
         if handler_response["status"]:
-            markdown_url = """[Download Video]({})""".format(handler_response["payload"])
+            markdown_url = """[View Download]({})""".format(handler_response["payload"])
             st.success(f"""**Download Complete!**\n {markdown_url}""")
         else:
             st.success(f"""**Download Complete!**\n {handler_response["payload"]}""")
-
 
 def write_human_response(user_query: str) -> None:
     """Write user query to chat"""
@@ -34,7 +35,7 @@ def write_ai_response(user_query: str) -> None:
     global progress_bar
 
     with st.chat_message("assistant"):
-        with YoutubeDL({'progress_hooks': [cb_download_hook]}) as ydl:
+        with YoutubeDL({'progress_hooks': [cb_download_hook], 'postprocessor_hooks': [cb_post_process_hook]}) as ydl:
             try:
                 with spinner("Fetching Video Information"):
                     info = ydl.extract_info(user_query, download = False)
